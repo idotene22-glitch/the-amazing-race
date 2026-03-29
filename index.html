@@ -6,7 +6,7 @@
 <title>המירוץ למיליון - האתר הרשמי</title>
 
 <style>
-body{margin:0;font-family:Arial;background:linear-gradient(135deg,#ffcc00,#ff3333);}
+body{margin:0;font-family:Arial;background:linear-gradient(135deg,#ffcc00,#ff3333);} 
 header{background:#d40000;color:#fff;text-align:center;padding:15px;font-size:20px;font-weight:bold;}
 .container{max-width:900px;margin:auto;padding:15px;}
 .card{background:#fff;border-radius:15px;padding:15px;margin-bottom:15px;box-shadow:0 4px 10px rgba(0,0,0,0.2);} 
@@ -45,8 +45,6 @@ button{margin-top:10px;padding:10px;width:100%;border:none;border-radius:10px;ba
 <div id="viewArea" class="hidden"></div>
 </div>
 
-
-
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
@@ -65,6 +63,34 @@ appId:"1:1073434857739:web:3fe8d2802bb5114c33520e"
 
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
+
+// זיהוי משתמש אוטומטי (ללא בקשת אימייל)
+// ⚠️ אין דרך אמיתית לזהות אימייל משתמש בלי התחברות
+// לכן משתמשים בקוד סודי פנימי (רק אתה יודע)
+const ADMIN_KEY = "123456"; // תשנה לקוד שרק אתה יודע
+
+let isAdmin = false;
+
+// בדיקה אם יש קוד מנהל בדפדפן
+const savedKey = localStorage.getItem("adminKey");
+if(savedKey === ADMIN_KEY){
+  isAdmin = true;
+}
+
+// דרך נסתרת להפעיל מצב מנהל
+// לחץ Ctrl+Shift+A ואז הכנס קוד
+window.addEventListener("keydown", function(e){
+  if(e.ctrlKey && e.shiftKey && e.key === "A"){
+    const code = prompt("הכנס קוד מנהל:");
+    if(code === ADMIN_KEY){
+      localStorage.setItem("adminKey", code);
+      alert("מצב מנהל הופעל");
+      location.reload();
+    } else {
+      alert("קוד שגוי");
+    }
+  }
+});
 
 function sendQuestion(){
 const name=document.getElementById("name").value;
@@ -97,7 +123,7 @@ area.innerHTML="";
 
 // שאלות
  db.ref("questions").on("value",snap=>{
-   area.innerHTML+="<h3>שאלות</h3>";
+   area.innerHTML="<h3>שאלות</h3>";
    snap.forEach(item=>{
      const d=item.val();
      const div=document.createElement("div");
@@ -110,7 +136,14 @@ area.innerHTML="";
        });
      }
 
-     div.innerHTML=`<b>${d.name}</b><br>${d.question}${replies}`;
+     let replyBox="";
+     if(isAdmin){
+       replyBox=`
+       <input id="r${item.key}" placeholder="תגובה">
+       <button onclick="addReply('${item.key}')">ענה</button>`;
+     }
+
+     div.innerHTML=`<b>${d.name}</b><br>${d.question}${replies}${replyBox}`;
      area.appendChild(div);
    });
  });
@@ -130,27 +163,43 @@ area.innerHTML="";
        });
      }
 
-     div.innerHTML=`<b>${d.name}</b><br>${d.idea}${replies}`;
+     let replyBox="";
+     if(isAdmin){
+       replyBox=`
+       <input id="i${item.key}" placeholder="תגובה">
+       <button onclick="addReplyIdea('${item.key}')">ענה</button>`;
+     }
+
+     div.innerHTML=`<b>${d.name}</b><br>${d.idea}${replies}${replyBox}`;
      area.appendChild(div);
    });
  });
 }
 
-// התראות
-setInterval(()=>{
- const userId=localStorage.getItem("userId");
- if(!userId) return;
+function addReply(key){
+const text=document.getElementById("r"+key).value;
+if(!text)return;
 
- db.ref("questions").once("value",snap=>{
-   snap.forEach(item=>{
-     const d=item.val();
-     if(d.time==userId && d.replies){
-       alert("יש תגובה חדשה לשאלה שלך!");
-     }
-   });
+db.ref("questions/"+key+"/replies").push({text});
+}
+
+function addReplyIdea(key){
+const text=document.getElementById("i"+key).value;
+if(!text)return;
+
+db.ref("ideas/"+key+"/replies").push({text});
+}
+
+// התראות בזמן אמת
+const userId=localStorage.getItem("userId");
+if(userId){
+ db.ref("questions").on("child_changed",snap=>{
+   const d=snap.val();
+   if(d.time==userId && d.replies){
+     alert("🔔 קיבלת תשובה חדשה!");
+   }
  });
-},5000);
-
+}
 
 </script>
 
