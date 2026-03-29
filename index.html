@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="vןןiewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>המירוץ למיליון - האתר הרשמי</title>
 
 <style>
@@ -64,21 +64,13 @@ appId:"1:1073434857739:web:3fe8d2802bb5114c33520e"
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
-// זיהוי משתמש אוטומטי (ללא בקשת אימייל)
-// ⚠️ אין דרך אמיתית לזהות אימייל משתמש בלי התחברות
-// לכן משתמשים בקוד סודי פנימי (רק אתה יודע)
-const ADMIN_KEY = "I123U321i"; // תשנה לקוד שרק אתה יודע
-
+const ADMIN_KEY = "מצב מנהל";
 let isAdmin = false;
-
-// בדיקה אם יש קוד מנהל בדפדפן
 const savedKey = localStorage.getItem("adminKey");
 if(savedKey === ADMIN_KEY){
   isAdmin = true;
 }
 
-// דרך נסתרת להפעיל מצב מנהל
-// לחץ Ctrl+Shift+A ואז הכנס קוד
 window.addEventListener("keydown", function(e){
   if(e.ctrlKey && e.shiftKey && e.key === "A"){
     const code = prompt("הכנס קוד מנהל:");
@@ -92,15 +84,45 @@ window.addEventListener("keydown", function(e){
   }
 });
 
+// יצירת userId קבוע למשתמש
+let userId = localStorage.getItem("userId");
+if(!userId){
+  userId = Date.now().toString();
+  localStorage.setItem("userId", userId);
+}
+
 function sendQuestion(){
-const name=document.getElementById("name").value;
-const question=document.getElementById("question").value;
+const name=document.getElementById("name").value.trim();
+const question=document.getElementById("question").value.trim();
 if(!name||!question)return alert("מלא הכל");
 
-const id=Date.now();
-localStorage.setItem("userId",id);
+if(name.trim().toLowerCase() === "אני מנהל" && question === "תראה לי את מצב מנהל"){
+  const code = prompt("הכנס קוד מנהל:");
+  if(code === ADMIN_KEY){
+    localStorage.setItem("adminKey", code);
+    isAdmin = true;
+    alert("מצב מנהל הופעל");
+    location.reload();
+  } else {
+    alert("קוד שגוי");
+  }
 
+  document.getElementById("name").value="";
+  document.getElementById("question").value="";
+  return;
+}
+
+const id=Date.now();
 db.ref("questions").push({name,question,time:id});
+
+const notice=document.createElement("div");
+notice.className="notice";
+notice.innerText="✅ השאלה נשלחה ותענה בקרוב";
+document.querySelector(".container").prepend(notice);
+setTimeout(()=>notice.remove(),3000);
+
+document.getElementById("name").value="";
+document.getElementById("question").value="";
 }
 
 function sendIdea(){
@@ -109,6 +131,15 @@ const idea=document.getElementById("idea").value;
 if(!name||!idea)return alert("מלא הכל");
 
 db.ref("ideas").push({name,idea,time:Date.now()});
+
+const notice=document.createElement("div");
+notice.className="notice";
+notice.innerText="✅ הרעיון נשלח ויבדק בקרוב";
+document.querySelector(".container").prepend(notice);
+setTimeout(()=>notice.remove(),3000);
+
+document.getElementById("ideaName").value="";
+document.getElementById("idea").value="";
 }
 
 function toggleView(){
@@ -121,7 +152,6 @@ function loadData(){
 const area=document.getElementById("viewArea");
 area.innerHTML="";
 
-// שאלות
  db.ref("questions").on("value",snap=>{
    area.innerHTML="<h3>שאלות</h3>";
    snap.forEach(item=>{
@@ -148,7 +178,6 @@ area.innerHTML="";
    });
  });
 
- // רעיונות
  db.ref("ideas").on("value",snap=>{
    area.innerHTML+="<h3>רעיונות</h3>";
    snap.forEach(item=>{
@@ -179,26 +208,25 @@ area.innerHTML="";
 function addReply(key){
 const text=document.getElementById("r"+key).value;
 if(!text)return;
-
 db.ref("questions/"+key+"/replies").push({text});
 }
 
 function addReplyIdea(key){
 const text=document.getElementById("i"+key).value;
 if(!text)return;
-
 db.ref("ideas/"+key+"/replies").push({text});
 }
 
-// התראות בזמן אמת
-const userId=localStorage.getItem("userId");
+// התראות משופרות למשתמש
 if(userId){
- db.ref("questions").on("child_changed",snap=>{
-   const d=snap.val();
-   if(d.time==userId && d.replies){
-     alert("🔔 קיבלת תשובה חדשה!");
-   }
- });
+  db.ref("questions").on("value", snap => {
+    snap.forEach(child => {
+      const d = child.val();
+      if(d.time == userId && d.replies){
+        alert("🔔 קיבלת תשובה חדשה!");
+      }
+    });
+  });
 }
 
 </script>
